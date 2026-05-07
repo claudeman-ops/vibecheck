@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase --version)",
+      "Bash(node -e \"const p = require\\('./node_modules/@supabase/ssr/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(node -e \"const p = require\\('./node_modules/@supabase/supabase-js/package.json'\\); console.log\\(p.version\\)\")",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
