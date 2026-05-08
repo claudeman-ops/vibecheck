@@ -9,14 +9,15 @@ export default async function VotePage({ params }: { params: { id: string } }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [{ data: session }, { data: ideas }, { data: myVotes }, { data: membership }] = await Promise.all([
+  const [{ data: session }, { data: ideas }, { data: myVotes }, { data: membership }, { data: members }] = await Promise.all([
     supabase.from('sessions').select('id, title, status, invite_code').eq('id', params.id).single(),
     supabase
       .from('ideas')
-      .select('*, session_members!ideas_submitted_by_fkey(display_name)')
+      .select('*')
       .eq('session_id', params.id)
       .order('created_at', { ascending: true }),
     supabase.from('votes').select('*').eq('session_id', params.id).eq('user_id', user.id),
+    supabase.from('session_members').select('user_id, display_name').eq('session_id', params.id),
     supabase
       .from('session_members')
       .select('id')
@@ -37,7 +38,13 @@ export default async function VotePage({ params }: { params: { id: string } }) {
     redirect(`/sessions/${params.id}/schedule`)
   }
 
-  const typedIdeas = (ideas ?? []) as unknown as (Idea & { session_members?: { display_name: string } })[]
+  const memberNames = Object.fromEntries(
+    (members ?? []).map((m) => [m.user_id, m.display_name])
+  )
+  const typedIdeas = (ideas ?? []).map((idea) => ({
+    ...(idea as unknown as Idea),
+    session_members: idea.submitted_by ? { display_name: memberNames[idea.submitted_by] } : undefined,
+  }))
   const initialVotes = (myVotes ?? []).reduce<Record<string, number>>((acc, v) => {
     const vote = v as unknown as Vote
     acc[vote.idea_id] = vote.value
