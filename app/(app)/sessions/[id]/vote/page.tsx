@@ -17,13 +17,13 @@ export default async function VotePage({ params }: { params: { id: string } }) {
       .eq('session_id', params.id)
       .order('created_at', { ascending: true }),
     supabase.from('votes').select('*').eq('session_id', params.id).eq('user_id', user.id),
-    supabase.from('session_members').select('user_id, display_name').eq('session_id', params.id),
     supabase
       .from('session_members')
       .select('id')
       .eq('session_id', params.id)
       .eq('user_id', user.id)
       .maybeSingle(),
+    supabase.from('session_members').select('user_id, display_name').eq('session_id', params.id),
   ])
 
   if (!session) notFound()
@@ -39,7 +39,7 @@ export default async function VotePage({ params }: { params: { id: string } }) {
   }
 
   const memberNames = Object.fromEntries(
-    (members ?? []).map((m) => [m.user_id, m.display_name])
+    ((members ?? []) as { user_id: string; display_name: string }[]).map((m) => [m.user_id, m.display_name])
   )
   const typedIdeas = (ideas ?? []).map((idea) => ({
     ...(idea as unknown as Idea),
