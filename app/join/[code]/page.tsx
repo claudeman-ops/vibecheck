@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { joinSession } from '@/lib/actions/sessions'
+import { JoinForm } from './join-form'
 import type { SessionPreview } from '@/lib/types/database.types'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -15,7 +15,6 @@ export default async function JoinPage({ params }: { params: { code: string } })
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Use the security-definer RPC to fetch session preview without RLS
   const { data: rows, error } = await supabase.rpc('preview_session_by_code', {
     p_invite_code: params.code.toUpperCase(),
   })
@@ -37,16 +36,11 @@ export default async function JoinPage({ params }: { params: { code: string } })
 
   const session = rows[0] as SessionPreview
 
-  // Already a member — send them straight to the session
   if (user && session.is_member) {
     redirect(`/sessions/${session.id}`)
   }
 
-  async function handleJoin(formData: FormData) {
-    'use server'
-    const displayName = formData.get('display_name') as string
-    await joinSession(session.id, displayName)
-  }
+  const defaultName = (user?.user_metadata?.display_name as string) ?? ''
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
@@ -55,7 +49,6 @@ export default async function JoinPage({ params }: { params: { code: string } })
       </Link>
 
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-        {/* Session preview */}
         <div className="mb-6">
           <p className="text-xs font-bold text-violet-400 tracking-widest mb-1">
             YOU&apos;RE INVITED
@@ -80,40 +73,11 @@ export default async function JoinPage({ params }: { params: { code: string } })
           </div>
         </div>
 
-        {user ? (
-          // Logged in — show join form
-          <form action={handleJoin} className="space-y-4">
-            <div>
-              <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 mb-1">
-                Your name in this session
-              </label>
-              <input
-                id="display_name"
-                name="display_name"
-                defaultValue={user.email?.split('@')[0]}
-                placeholder="e.g. Alex"
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition-colors"
-            >
-              Join session
-            </button>
-          </form>
-        ) : (
-          // Not logged in — prompt login
-          <div className="space-y-3">
-            <p className="text-sm text-gray-500">Sign in to join this session.</p>
-            <Link
-              href={`/login?next=/join/${params.code}`}
-              className="block w-full text-center rounded-xl bg-violet-600 py-3 text-sm font-semibold text-white hover:bg-violet-700 transition-colors"
-            >
-              Sign in to join
-            </Link>
-          </div>
-        )}
+        <JoinForm
+          sessionId={session.id}
+          defaultName={defaultName}
+          isLoggedIn={!!user}
+        />
       </div>
     </div>
   )

@@ -1,7 +1,12 @@
+import { createClient } from '@/lib/supabase/server'
 import { createSession } from '@/lib/actions/sessions'
 import Link from 'next/link'
 
-export default function NewSessionPage() {
+export default async function NewSessionPage() {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const displayName = (user?.user_metadata?.display_name as string) ?? ''
+
   return (
     <div className="max-w-lg mx-auto">
       <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700 mb-6 inline-block">
@@ -80,6 +85,7 @@ export default function NewSessionPage() {
           <input
             id="display_name"
             name="display_name"
+            defaultValue={displayName}
             placeholder="e.g. Alex"
             className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
           />

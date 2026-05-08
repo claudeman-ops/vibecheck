@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           Vibe Check
         </Link>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500 hidden sm:block">{user.email}</span>
+          <span className="text-sm text-gray-500 hidden sm:block">{user.user_metadata?.display_name ?? 'You'}</span>
           <SignOutButton />
         </div>
       </nav>
