@@ -1,15 +1,22 @@
 -- Enable UUID extension
 create extension if not exists "uuid-ossp";
 
--- Enum types
-create type session_status as enum ('collecting_ideas', 'voting', 'completed');
-create type idea_category as enum ('activity', 'restaurant', 'event', 'accommodation', 'transport', 'other');
+-- Enum types (idempotent)
+do $$ begin
+  create type session_status as enum ('collecting_ideas', 'voting', 'completed');
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin
+  create type idea_category as enum ('activity', 'restaurant', 'event', 'accommodation', 'transport', 'other');
+exception when duplicate_object then null;
+end $$;
 
 -- -------------------------------------------------------
 -- TABLES
 -- -------------------------------------------------------
 
-create table public.sessions (
+create table if not exists public.sessions (
   id            uuid default uuid_generate_v4() primary key,
   created_by    uuid references auth.users(id) on delete set null,
   title         text not null,
@@ -21,11 +28,12 @@ create table public.sessions (
   date_end      date,
   idea_deadline   timestamptz,
   voting_deadline timestamptz,
+  is_archived   boolean default false not null,
   created_at    timestamptz default now() not null,
   updated_at    timestamptz default now() not null
 );
 
-create table public.session_members (
+create table if not exists public.session_members (
   id           uuid default uuid_generate_v4() primary key,
   session_id   uuid references public.sessions(id) on delete cascade not null,
   user_id      uuid references auth.users(id) on delete cascade not null,
@@ -35,7 +43,7 @@ create table public.session_members (
   unique(session_id, user_id)
 );
 
-create table public.ideas (
+create table if not exists public.ideas (
   id             uuid default uuid_generate_v4() primary key,
   session_id     uuid references public.sessions(id) on delete cascade not null,
   submitted_by   uuid references auth.users(id) on delete set null,
@@ -47,7 +55,7 @@ create table public.ideas (
   created_at     timestamptz default now() not null
 );
 
-create table public.votes (
+create table if not exists public.votes (
   id         uuid default uuid_generate_v4() primary key,
   idea_id    uuid references public.ideas(id) on delete cascade not null,
   session_id uuid references public.sessions(id) on delete cascade not null,
@@ -69,6 +77,7 @@ begin
 end;
 $$;
 
+drop trigger if exists sessions_updated_at on public.sessions;
 create trigger sessions_updated_at
   before update on public.sessions
   for each row execute function public.handle_updated_at();
@@ -133,61 +142,80 @@ alter table public.ideas           enable row level security;
 alter table public.votes           enable row level security;
 
 -- Sessions
+drop policy if exists "Members can view their sessions" on public.sessions;
 create policy "Members can view their sessions"
   on public.sessions for select to authenticated
   using (public.is_session_member(id));
 
+drop policy if exists "Authenticated users can create sessions" on public.sessions;
 create policy "Authenticated users can create sessions"
   on public.sessions for insert to authenticated
   with check (created_by = auth.uid());
 
+drop policy if exists "Host can update their session" on public.sessions;
 create policy "Host can update their session"
   on public.sessions for update to authenticated
   using (created_by = auth.uid());
 
+drop policy if exists "Host can delete their session" on public.sessions;
+create policy "Host can delete their session"
+  on public.sessions for delete to authenticated
+  using (created_by = auth.uid());
+
 -- Session members
+drop policy if exists "Members can view other members" on public.session_members;
 create policy "Members can view other members"
   on public.session_members for select to authenticated
   using (public.is_session_member(session_id));
 
+drop policy if exists "Users can join sessions" on public.session_members;
 create policy "Users can join sessions"
   on public.session_members for insert to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "Users can leave sessions" on public.session_members;
 create policy "Users can leave sessions"
   on public.session_members for delete to authenticated
   using (user_id = auth.uid());
 
 -- Ideas
+drop policy if exists "Members can view ideas" on public.ideas;
 create policy "Members can view ideas"
   on public.ideas for select to authenticated
   using (public.is_session_member(session_id));
 
+drop policy if exists "Members can submit ideas" on public.ideas;
 create policy "Members can submit ideas"
   on public.ideas for insert to authenticated
   with check (submitted_by = auth.uid() and public.is_session_member(session_id));
 
+drop policy if exists "Submitters can update their ideas" on public.ideas;
 create policy "Submitters can update their ideas"
   on public.ideas for update to authenticated
   using (submitted_by = auth.uid());
 
+drop policy if exists "Submitters can delete their ideas" on public.ideas;
 create policy "Submitters can delete their ideas"
   on public.ideas for delete to authenticated
   using (submitted_by = auth.uid());
 
 -- Votes
+drop policy if exists "Members can view votes" on public.votes;
 create policy "Members can view votes"
   on public.votes for select to authenticated
   using (public.is_session_member(session_id));
 
+drop policy if exists "Members can cast votes" on public.votes;
 create policy "Members can cast votes"
   on public.votes for insert to authenticated
   with check (user_id = auth.uid() and public.is_session_member(session_id));
 
+drop policy if exists "Users can update their own votes" on public.votes;
 create policy "Users can update their own votes"
   on public.votes for update to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "Users can delete their own votes" on public.votes;
 create policy "Users can delete their own votes"
   on public.votes for delete to authenticated
   using (user_id = auth.uid());

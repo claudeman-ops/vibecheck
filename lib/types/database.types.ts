@@ -13,6 +13,7 @@ export interface Session {
   date_end: string | null
   idea_deadline: string | null
   voting_deadline: string | null
+  is_archived: boolean
   created_at: string
   updated_at: string
 }

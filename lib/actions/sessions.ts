@@ -12,9 +12,7 @@ function generateInviteCode(): string {
 
 export async function createSession(formData: FormData) {
   const supabase = createClient()
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-  console.log('[createSession] user:', user, 'userError:', userError)
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) redirect('/login')
 
@@ -46,7 +44,6 @@ export async function createSession(formData: FormData) {
       status: 'collecting_ideas',
     })
 
-  console.log('[createSession] sessionError:', sessionError)
   if (sessionError) throw new Error(sessionError.message)
 
   const { error: memberError } = await supabase.from('session_members').insert({
@@ -56,7 +53,6 @@ export async function createSession(formData: FormData) {
     is_host: true,
   })
 
-  console.log('[createSession] memberError:', memberError)
   if (memberError) throw new Error(memberError.message)
 
   redirect(`/sessions/${sessionId}`)
@@ -87,6 +83,53 @@ export async function joinSession(sessionId: string, displayName: string) {
   }
 
   redirect(`/sessions/${sessionId}`)
+}
+
+export async function deleteSession(sessionId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase
+    .from('sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('created_by', user.id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+  redirect('/dashboard')
+}
+
+export async function archiveSession(sessionId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase
+    .from('sessions')
+    .update({ is_archived: true })
+    .eq('id', sessionId)
+    .eq('created_by', user.id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+}
+
+export async function leaveSession(sessionId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase
+    .from('session_members')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('user_id', user.id)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/dashboard')
+  redirect('/dashboard')
 }
 
 export async function advanceSessionStatus(sessionId: string) {

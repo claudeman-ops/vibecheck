@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { deleteIdea } from '@/lib/actions/ideas'
 import { IdeaForm } from './idea-form'
+import { SuggestionsPanel } from './suggestions-panel'
 import type { Idea, IdeaCategory, Session, SessionMember } from '@/lib/types/database.types'
 
 const CATEGORY_EMOJI: Record<IdeaCategory, string> = {
@@ -65,10 +66,13 @@ export default async function IdeasPage({ params }: { params: { id: string } }) 
       </div>
 
       {isOpen ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4">Add your idea</h2>
-          <IdeaForm sessionId={params.id} />
-        </div>
+        <>
+          <SuggestionsPanel sessionId={params.id} />
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h2 className="text-sm font-semibold text-gray-700 mb-4">Add your idea</h2>
+            <IdeaForm sessionId={params.id} />
+          </div>
+        </>
       ) : (
         <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4 text-sm text-amber-700">
           Idea submission is closed — voting is now open.
